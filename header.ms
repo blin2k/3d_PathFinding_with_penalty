@@ -22,8 +22,22 @@ fn drawLine source endpoint colour = (
     updateShape s
 )
 
-fn getMap origin start obs goal = (
+fn getObsVerts obs = (
     verts = #()
+    for ob in obs do(
+        if ClassOf ob == Box then(
+            convertToPoly ob
+        )
+        num_verts = polyOp.getNumVerts ob
+        for i in 1 to num_verts do(
+            v = polyOp.getVert ob i
+            append verts v
+        )
+    )
+    return verts
+)
+
+fn getMap origin start obs goal = (
     radiuses = #()
     rays = #()
     hits = #()
@@ -50,24 +64,18 @@ fn getMap origin start obs goal = (
     )
 
     -- record and collect the rad&ray of the vertices
-    for ob in obs do(
-        if ClassOf ob == Box then(
-            convertToPoly ob
-        )
-        num_verts = polyOp.getNumVerts ob
-        for i in 1 to num_verts do(
-            v = polyOp.getVert ob i
-            radius = distance origin.pos v
-            ob_ray = ray origin.pos (v - origin.pos)
+    verts = getObsVerts obs
+    for v in verts do(
+        radius = distance origin.pos v
+        ob_ray = ray origin.pos (v - origin.pos)
 
-            append radiuses radius
-            append rays ob_ray
-            append ob_rads radius
-            append ob_rays ob_ray
+        append radiuses radius
+        append rays ob_ray
+        append ob_rads radius
+        append ob_rays ob_ray
 
-            if visualize == true then(
-                drawLine origin.pos v red
-            )
+        if visualize == true then(
+            drawLine origin.pos v red
         )
     )
 
@@ -113,20 +121,73 @@ fn getMap origin start obs goal = (
     return rlt
 )
 
-fn getNeighbours cur_node map = (
+fn isPointInsideBox point box = (
+    local bbMin = [0,0,0]
+    local bbMax = [0,0,0]
+    nodeGetBoundingBox box box.transform &bbMin &bbMax
+
+    if (point.x >= bbMin.x and point.x <= bbMax.x) and
+       (point.y >= bbMin.y and point.y <= bbMax.y) and
+       (point.z >= bbMin.z and point.z <= bbMax.z) then (
+        return true
+    )
+    else (
+        return false
+    )
+)
+
+fn arcIntersectsBoxes p1 p2 center obs = (
+    numSamples = 10
+    vec1 = p1 - center
+    vec2 = p2 - center
+
+    len1 = length vec1
+    len2 = length vec2
+
+    if len1 == 0 or len2 == 0 do return true  -- Avoid division by zero
+
+    normVec1 = vec1 / len1
+    normVec2 = vec2 / len2
+
+    dotProduct = dot normVec1 normVec2
+    theta = acos dotProduct
+
+    if theta == 0 do return false  -- Vectors are the same, no arc to check
+
+    for i = 0 to numSamples do (
+        t = i / numSamples
+        sinTheta = sin theta
+        a = sin ((1 - t) * theta) / sinTheta
+        b = sin (t * theta) / sinTheta
+        vec = normVec1 * a + normVec2 * b
+        vec = normalize vec
+        radius = len1 * (1 - t) + len2 * t
+        pos = center + vec * radius
+
+        for ob in obs do (
+            if isPointInsideBox pos ob do (
+                return true  -- Arc crosses an obstacle
+            )
+        )
+    )
+    return false  -- Arc does not cross any obstacle
+)
+
+fn getNeighbours cur_node map obs origin = (
     cur_layer = cur_node.layer_id
     cur_ray = cur_node.ray_id
     neighbours = #()
     for p in map do(
         if p.layer_id == cur_layer or p.ray_id == cur_ray then(
-
-            append neighbours p
+            if not arcIntersectsBoxes cur_node.world_position p.world_position origin.pos obs then (
+                append neighbours p
+            )
         )
     )
     return neighbours
 )
 
-fn AStar start_node end_node map = (
+fn AStar start_node end_node map obs origin = (
     openSet = #()
     closedSet = #()
     
@@ -161,14 +222,14 @@ fn AStar start_node end_node map = (
         deleteItem openSet (findItem openSet current)
         append closedSet current
         
-        neighbours = getNeighbours current map
+        neighbours = getNeighbours current map obs origin
         
         for neighbour in neighbours do (
             if findItem closedSet neighbour != 0 or neighbour.walkable == false then (
                 continue
             )
             
-            tentativeG = current.g + distance current.world_position neighbour.world_position
+            tentativeG = current.g + 1
             isBetter = false
             
             if findItem openSet neighbour == 0 then (
