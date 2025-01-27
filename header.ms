@@ -121,56 +121,16 @@ fn getMap origin start obs goal = (
     return rlt
 )
 
-fn isPointInsideBox point box = (
-    local bbMin = [0,0,0]
-    local bbMax = [0,0,0]
-    nodeGetBoundingBox box box.transform &bbMin &bbMax
-
-    if (point.x >= bbMin.x and point.x <= bbMax.x) and
-       (point.y >= bbMin.y and point.y <= bbMax.y) and
-       (point.z >= bbMin.z and point.z <= bbMax.z) then (
-        return true
-    )
-    else (
-        return false
-    )
-)
-
-fn arcIntersectsBoxes p1 p2 center obs = (
-    numSamples = 10
-    vec1 = p1 - center
-    vec2 = p2 - center
-
-    len1 = length vec1
-    len2 = length vec2
-
-    if len1 == 0 or len2 == 0 do return true  -- Avoid division by zero
-
-    normVec1 = vec1 / len1
-    normVec2 = vec2 / len2
-
-    dotProduct = dot normVec1 normVec2
-    theta = acos dotProduct
-
-    if theta == 0 do return false  -- Vectors are the same, no arc to check
-
-    for i = 0 to numSamples do (
-        t = i / numSamples
-        sinTheta = sin theta
-        a = sin ((1 - t) * theta) / sinTheta
-        b = sin (t * theta) / sinTheta
-        vec = normVec1 * a + normVec2 * b
-        vec = normalize vec
-        radius = len1 * (1 - t) + len2 * t
-        pos = center + vec * radius
-
-        for ob in obs do (
-            if isPointInsideBox pos ob do (
-                return true  -- Arc crosses an obstacle
-            )
+fn intersectsBoxes from_pos to_pos origin_pos obs = (
+    r = ray from_pos (to_pos - from_pos)
+    for ob in obs do(
+        hit = intersectRay ob r
+        if hit != undefined then(
+            -- print(hit)
+            return true
         )
     )
-    return false  -- Arc does not cross any obstacle
+    return false
 )
 
 fn getNeighbours cur_node map obs origin = (
@@ -178,11 +138,11 @@ fn getNeighbours cur_node map obs origin = (
     cur_ray = cur_node.ray_id
     neighbours = #()
     for p in map do(
-        if p.layer_id == cur_layer or p.ray_id == cur_ray then(
-            if not arcIntersectsBoxes cur_node.world_position p.world_position origin.pos obs then (
-                append neighbours p
-            )
+        -- if p.layer_id == cur_layer or p.ray_id == cur_ray then(
+        if not intersectsBoxes cur_node.world_position p.world_position origin.pos obs then (
+            append neighbours p
         )
+        -- )
     )
     return neighbours
 )
@@ -248,4 +208,24 @@ fn AStar start_node end_node map obs origin = (
     )
     
     return undefined  -- No path found
+)
+
+fn angleBetween direction_A direction_B =
+(	
+	local dot_prod = direction_A[1] * direction_B[1] + direction_A[2] * direction_B[2]
+	
+	local mag_a = sqrt ((pow direction_A[1] 2) + (pow direction_A[2] 2))
+	local mag_b = sqrt ((pow direction_B[1] 2) + (pow direction_B[2] 2))
+
+	local ans = acos (dot_prod/(mag_a * mag_b))
+	
+	local cross_prod = [0,0,(direction_A[1]*direction_B[2] - direction_B[1]*direction_A[2])]	
+		
+	if cross_prod.z < 0 then (
+        ans = 360 - ans
+    )
+    if ans > 180 then(
+        ans = 360 - ans
+    )
+	return ans
 )
