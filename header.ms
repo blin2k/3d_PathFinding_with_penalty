@@ -10,7 +10,18 @@ struct cNode(
     f,
     walkable = true,
     parent,
-    world_position
+    world_position,
+    p
+)
+
+fn clean = (
+    for a in $s* do(
+        delete a
+    )
+
+    for b in $path* do(
+        delete b
+    )
 )
 
 fn drawLine source endpoint colour = (
@@ -22,22 +33,76 @@ fn drawLine source endpoint colour = (
     updateShape s
 )
 
-fn getObsVerts obs = (
+fn getObVerts ob = (
     verts = #()
-    for ob in obs do(
-        if ClassOf ob == Box then(
-            convertToPoly ob
-        )
-        num_verts = polyOp.getNumVerts ob
-        for i in 1 to num_verts do(
-            v = polyOp.getVert ob i
-            append verts v
-        )
+    if ClassOf ob == Box then(
+        convertToPoly ob
+    )
+    num_verts = polyOp.getNumVerts ob
+    for i in 1 to num_verts do(
+        v = polyOp.getVert ob i
+        append verts v
     )
     return verts
 )
 
-fn getMap origin start obs goal = (
+fn isCollide obj1 obj2 =(
+    if intersects obj1 obj2 then
+    (
+        local mesh1 = snapshotAsMesh obj1
+        local mesh2 = snapshotAsMesh obj2
+        (mesh1 * mesh2).numverts > 0
+    )
+    else
+    (
+        false
+    )
+)
+
+fn getObsVerts obs = (
+    verts = #()
+    for ob in obs do(
+        verts = verts + getObVerts ob
+    )
+    return verts
+)
+
+fn getEnvelopesVerts obs margin = (
+    verts = #()
+    for ob in obs do(
+        bb = getNodeBBox ob
+        new_bb_min = bb.min - margin
+        if new_bb_min.z < 0 do new_bb_min.z = 0
+        new_bb_max = bb.max + margin
+        
+        ttl = [new_bb_min.x, new_bb_max.y, new_bb_max.z]
+        ttr = [new_bb_max.x, new_bb_max.y, new_bb_max.z]
+        tbl = [new_bb_min.x, new_bb_min.y, new_bb_max.z]
+        tbr = [new_bb_max.x, new_bb_min.y, new_bb_max.z]
+
+        btl = [new_bb_min.x, new_bb_max.y, new_bb_min.z]
+        btr = [new_bb_max.x, new_bb_max.y, new_bb_min.z]
+        bbl = [new_bb_min.x, new_bb_min.y, new_bb_min.z]
+        bbr = [new_bb_max.x, new_bb_min.y, new_bb_min.z]
+
+        expanded_verts = #(ttl, ttr, tbl, tbr, btl, btr, bbl, bbr)
+        verts = verts + expanded_verts
+    )    
+    return verts
+)
+
+fn getRisk cur_node obs radius penalty = (
+    risk = cur_node.world_position.z
+    for ob in obs do(
+        s = sphere pos:cur_node.world_position radius:radius
+        if isCollide s ob then(
+            risk = risk + penalty
+        )
+    )
+    return risk
+)
+
+fn getMap origin start obs goal margin = (
     radiuses = #()
     rays = #()
     hits = #()
@@ -64,7 +129,7 @@ fn getMap origin start obs goal = (
     )
 
     -- record and collect the rad&ray of the vertices
-    verts = getObsVerts obs
+    verts = getEnvelopesVerts obs margin
     for v in verts do(
         radius = distance origin.pos v
         ob_ray = ray origin.pos (v - origin.pos)
@@ -94,7 +159,7 @@ fn getMap origin start obs goal = (
             hit = intersectRay s r
             if hit != undefined then(
                 append hits hit.pos
-                cur_grid = cNode layer_id:layer_id ray_id:ray_id h:(distance hit.pos goal.pos) world_position:hit.pos
+                cur_grid = cNode layer_id:layer_id ray_id:ray_id h:(distance hit.pos goal.pos) world_position:hit.pos p:0
 
                 if visualize == true then(
                     p = sphere radius:0.6 pos:hit.pos segs:40
@@ -110,6 +175,15 @@ fn getMap origin start obs goal = (
                         cur_grid.walkable = false
                     )
                 )
+
+                -- t = sphere radius:($pick.radius) pos:cur_grid.world_position
+                -- for ob in obs do(
+                --     if isCollide ob t do(
+                --         cur_grid.walkable = false
+                --         exit()
+                --     )
+                -- )
+                -- delete t
                 append grids cur_grid
             )
         ray_id += 1
@@ -121,7 +195,7 @@ fn getMap origin start obs goal = (
     return rlt
 )
 
-fn intersectsBoxes from_pos to_pos origin_pos obs = (
+fn isPathBlocked from_pos to_pos obs = (
     r = ray from_pos (to_pos - from_pos)
     for ob in obs do(
         hit = intersectRay ob r
@@ -138,21 +212,21 @@ fn getNeighbours cur_node map obs origin = (
     cur_ray = cur_node.ray_id
     neighbours = #()
     for p in map do(
-        -- if p.layer_id == cur_layer or p.ray_id == cur_ray then(
-        if not intersectsBoxes cur_node.world_position p.world_position origin.pos obs then (
-            append neighbours p
+        if p.layer_id == cur_layer or p.ray_id == cur_ray then(
+            if not isPathBlocked cur_node.world_position p.world_position obs then (
+                append neighbours p
+            )
         )
-        -- )
     )
     return neighbours
 )
 
-fn AStar start_node end_node map obs origin = (
+fn AStar start_node end_node map obs origin height_weight = (
     openSet = #()
     closedSet = #()
     
     start_node.g = 0.0
-    start_node.f = start_node.g + start_node.h
+    start_node.f = start_node.g + start_node.h + height_weight * start_node.p
     start_node.parent = undefined
     
     append openSet start_node
@@ -162,7 +236,7 @@ fn AStar start_node end_node map obs origin = (
         lowestF = undefined
         
         for node in openSet do (
-            f = node.g + node.h
+            f = node.g + node.h + height_weight*node.p
             if current == undefined or f < lowestF do (
                 current = node
                 lowestF = f
@@ -189,7 +263,7 @@ fn AStar start_node end_node map obs origin = (
                 continue
             )
             
-            tentativeG = current.g + 1
+            tentativeG = current.g + distance current.world_position neighbour.world_position
             isBetter = false
             
             if findItem openSet neighbour == 0 then (
@@ -202,7 +276,7 @@ fn AStar start_node end_node map obs origin = (
             if isBetter then (
                 neighbour.parent = current
                 neighbour.g = tentativeG
-                neighbour.f = neighbour.g + neighbour.h
+                neighbour.f = neighbour.g + neighbour.h + height_weight * neighbour.p
             )
         )
     )
