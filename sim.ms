@@ -20,6 +20,7 @@ if ps != undefined then(
     cur_time = 0
     with animate on(
         for p in ps do(
+            -- print(p.p)
             cur_time = cur_time + 10
             at time cur_time (
                 next_pos = p.world_position

@@ -8,7 +8,7 @@ struct cNode(
     g,
     h,
     f,
-    walkable = true,
+    -- walkable = true,
     parent,
     world_position,
     p
@@ -59,6 +59,15 @@ fn isCollide obj1 obj2 =(
     )
 )
 
+fn maybeCollide obj obs =(
+    for ob in obs do(
+        if (distance ob obj) < 10 and (intersects ob obj) do(
+            return true
+        )
+    )
+    return false
+)
+
 fn getObsVerts obs = (
     verts = #()
     for ob in obs do(
@@ -92,14 +101,24 @@ fn getEnvelopesVerts obs margin = (
 )
 
 fn getRisk cur_node obs radius penalty = (
-    risk = cur_node.world_position.z
+    -- return 0
+    -- risk = (cur_node.world_position.z) * 2
+    risk = 0
     for ob in obs do(
-        s = sphere pos:cur_node.world_position radius:radius
-        if isCollide s ob then(
+        if ob.height < cur_node.world_position.z do(
+            risk = risk - 0.5 * penalty
+        )     
+        if distance ob.pos cur_node.world_position < radius do(
             risk = risk + penalty
-        )
+            s = sphere radius:0.5 pos:cur_node.world_position
+            if intersects s ob do(
+                cur_node.walkable = false
+            )
+            delete s
+        ) 
     )
-    return risk
+    -- print(risk)
+    return sqrt risk
 )
 
 fn getMap origin start obs goal margin = (
@@ -159,7 +178,8 @@ fn getMap origin start obs goal margin = (
             hit = intersectRay s r
             if hit != undefined then(
                 append hits hit.pos
-                cur_grid = cNode layer_id:layer_id ray_id:ray_id h:(distance hit.pos goal.pos) world_position:hit.pos p:0
+                cur_grid = cNode layer_id:layer_id ray_id:ray_id h:(distance hit.pos goal.pos) world_position:hit.pos
+                cur_grid.p = getRisk cur_grid obs 3 1
 
                 if visualize == true then(
                     p = sphere radius:0.6 pos:hit.pos segs:40
@@ -178,12 +198,13 @@ fn getMap origin start obs goal margin = (
 
                 -- t = sphere radius:($pick.radius) pos:cur_grid.world_position
                 -- for ob in obs do(
-                --     if isCollide ob t do(
+                --     if cur_grid.walkable != false and isCollide ob t do(
                 --         cur_grid.walkable = false
                 --         exit()
                 --     )
                 -- )
                 -- delete t
+
                 append grids cur_grid
             )
         ray_id += 1
@@ -226,6 +247,7 @@ fn AStar start_node end_node map obs origin height_weight = (
     closedSet = #()
     
     start_node.g = 0.0
+    -- start_node.p = getRisk start_node obs 3 1
     start_node.f = start_node.g + start_node.h + height_weight * start_node.p
     start_node.parent = undefined
     
@@ -236,7 +258,9 @@ fn AStar start_node end_node map obs origin height_weight = (
         lowestF = undefined
         
         for node in openSet do (
-            f = node.g + node.h + height_weight*node.p
+
+            -- node.p = getRisk node obs 3 1
+            f = node.g + node.h + height_weight * node.p
             if current == undefined or f < lowestF do (
                 current = node
                 lowestF = f
@@ -247,6 +271,7 @@ fn AStar start_node end_node map obs origin height_weight = (
             path = #()
             node = current
             while node != undefined do (
+                print(node.p)
                 insertItem node path 1
                 node = node.parent
             )
@@ -263,7 +288,8 @@ fn AStar start_node end_node map obs origin height_weight = (
                 continue
             )
             
-            tentativeG = current.g + distance current.world_position neighbour.world_position
+            -- tentativeG = current.g + (distance current.world_position neighbour.world_position) * 0.3
+            tentativeG = current.g + 0.3
             isBetter = false
             
             if findItem openSet neighbour == 0 then (
@@ -276,6 +302,8 @@ fn AStar start_node end_node map obs origin height_weight = (
             if isBetter then (
                 neighbour.parent = current
                 neighbour.g = tentativeG
+
+                -- neighbour.p = getRisk neighbour obs 3 1
                 neighbour.f = neighbour.g + neighbour.h + height_weight * neighbour.p
             )
         )
