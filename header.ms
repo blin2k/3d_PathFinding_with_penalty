@@ -10,8 +10,8 @@ struct cNode(
     f,
     -- walkable = true,
     parent,
-    world_position,
-    p
+    world_position
+    -- p
 )
 
 fn clean = (
@@ -68,6 +68,19 @@ fn maybeCollide obj obs =(
     return false
 )
 
+fn isInsideOb obj ob = (
+    cur_pos = obj.world_position 
+    bb = getNodeBBox ob
+    if cur_pos.x >= bb.min.x and cur_pos.x <= bb.max.x and 
+        cur_pos.y >= bb.min.y and cur_pos.y <= bb.max.y and 
+        cur_pos.z >= bb.min.z and cur_pos.z <= bb.max.z then(
+            return true
+        ) 
+    else(
+        return false
+    )
+)
+
 fn getObsVerts obs = (
     verts = #()
     for ob in obs do(
@@ -100,25 +113,30 @@ fn getEnvelopesVerts obs margin = (
     return verts
 )
 
-fn getRisk cur_node obs radius penalty = (
-    -- return 0
-    -- risk = (cur_node.world_position.z) * 2
+fn getCrowdedRisk cur_node obs radius penalty = (
     risk = 0
     for ob in obs do(
-        if ob.height < cur_node.world_position.z do(
-            risk = risk - 0.5 * penalty
-        )     
-        if distance ob.pos cur_node.world_position < radius do(
-            risk = risk + penalty
-            s = sphere radius:0.5 pos:cur_node.world_position
-            if intersects s ob do(
-                cur_node.walkable = false
+        if isInsideOb cur_node ob then(
+            return 1e9
+        )
+        else(
+            d = distance cur_node.world_position ob.pos
+            if d < radius then(
+                risk += (radius - d)
+                -- risk += penalty
             )
-            delete s
-        ) 
+        )
     )
-    -- print(risk)
-    return sqrt risk
+    return risk
+)
+
+fn getHeightRisk cur_node neighbour = (
+    if neighbour.world_position.z > cur_node.world_position.z then(
+        return (neighbour.world_position.z - cur_node.world_position.z)
+    )
+    else(
+        return 0.0
+    )
 )
 
 fn getMap origin start obs goal margin = (
@@ -179,7 +197,6 @@ fn getMap origin start obs goal margin = (
             if hit != undefined then(
                 append hits hit.pos
                 cur_grid = cNode layer_id:layer_id ray_id:ray_id h:(distance hit.pos goal.pos) world_position:hit.pos
-                cur_grid.p = getRisk cur_grid obs 3 1
 
                 if visualize == true then(
                     p = sphere radius:0.6 pos:hit.pos segs:40
@@ -192,7 +209,7 @@ fn getMap origin start obs goal margin = (
                 )
                 for i in 1 to ob_rads.count do(
                     if ob_rads[i] == radius and ob_rays[i] == r then(
-                        cur_grid.walkable = false
+                        -- cur_grid.walkable = false
                     )
                 )
 
@@ -235,6 +252,11 @@ fn getNeighbours cur_node map obs origin = (
     for p in map do(
         if p.layer_id == cur_layer or p.ray_id == cur_ray then(
             if not isPathBlocked cur_node.world_position p.world_position obs then (
+                for ob in obs do(
+                    -- s = sphere pos:p.world_position radius:0.1
+                    -- if not intersects s ob do append neighbours p
+                    -- delete s
+                )
                 append neighbours p
             )
         )
@@ -242,70 +264,85 @@ fn getNeighbours cur_node map obs origin = (
     return neighbours
 )
 
-fn AStar start_node end_node map obs origin height_weight = (
+fn getHeuristic current neighbour= (
+    return (distance current.world_position neighbour.world_position)
+)
+
+fn AStar start_node end_node map obs origin safe_radius safe_mode = (
+    max_iter = 10000
+    cur_iter = 0
     openSet = #()
     closedSet = #()
     
+    -- init the start node
     start_node.g = 0.0
-    -- start_node.p = getRisk start_node obs 3 1
-    start_node.f = start_node.g + start_node.h + height_weight * start_node.p
+    start_node.f = start_node.g + start_node.h
     start_node.parent = undefined
     
+    -- init the open list
     append openSet start_node
     
-    while openSet.count > 0 do (
+    -- while the open list is not emply, pass the one with lowest f-value to the closed list, put its neighbours to the open list
+    while cur_iter < max_iter and openSet.count > 0 do (
+        cur_iter += 1
+        if (mod cur_iter 100 == 0) do print(cur_iter)
         current = undefined
         lowestF = undefined
         
+        -- find the one with the lowest f-value
         for node in openSet do (
-
-            -- node.p = getRisk node obs 3 1
-            f = node.g + node.h + height_weight * node.p
+            f = node.g + node.h
             if current == undefined or f < lowestF do (
                 current = node
                 lowestF = f
             )
         )
         
+        -- retrieve the path if the goal is hit
         if current == end_node then (
             path = #()
             node = current
             while node != undefined do (
-                print(node.p)
                 insertItem node path 1
                 node = node.parent
             )
             return path
         )
         
+        -- pass it to the closed list
         deleteItem openSet (findItem openSet current)
         append closedSet current
         
         neighbours = getNeighbours current map obs origin
         
         for neighbour in neighbours do (
-            if findItem closedSet neighbour != 0 or neighbour.walkable == false then (
+            -- pruning seen neighbours
+            if findItem closedSet neighbour != 0 then (
                 continue
             )
             
-            -- tentativeG = current.g + (distance current.world_position neighbour.world_position) * 0.3
-            tentativeG = current.g + 0.3
-            isBetter = false
-            
-            if findItem openSet neighbour == 0 then (
-                append openSet neighbour
-                isBetter = true
-            ) else if tentativeG < neighbour.g then (
-                isBetter = true
+            -- assign g-value for neighbours
+            if safe_mode == true then(
+                tentativeG = current.g + getHeuristic current neighbour + getCrowdedRisk current obs safe_radius 1 + getHeightRisk current neighbour
+            )
+            else(
+                tentativeG = current.g + getHeuristic current neighbour
             )
             
-            if isBetter then (
+            -- the neighbour is better than the current node if
+            -- 1. it is not in the open list, which means 
+            if findItem openSet neighbour == 0 then (
                 neighbour.parent = current
                 neighbour.g = tentativeG
+                neighbour.f = neighbour.g + neighbour.h
 
-                -- neighbour.p = getRisk neighbour obs 3 1
-                neighbour.f = neighbour.g + neighbour.h + height_weight * neighbour.p
+                append openSet neighbour
+            ) else if tentativeG < neighbour.g then (
+                neighbour.parent = current
+                neighbour.g = tentativeG
+                neighbour.f = neighbour.g + neighbour.h
             )
+            
         )
     )
     

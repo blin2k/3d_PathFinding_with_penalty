@@ -13,9 +13,10 @@ start_node = rlt[1]
 end_node = rlt[2]
 map = rlt[3]
 
-height_weight = -1
+safe_radius = 3
+safe_mode = false
 
-ps = AStar start_node end_node map obs crane height_weight
+ps = AStar start_node end_node map obs crane safe_radius safe_mode
 if ps != undefined then(
     cur_time = 0
     with animate on(
