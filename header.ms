@@ -264,11 +264,23 @@ fn getNeighbours cur_node map obs origin = (
     return neighbours
 )
 
-fn getHeuristic current neighbour= (
+fn getHeuristic current neighbour = (
     return (distance current.world_position neighbour.world_position)
 )
 
-fn AStar start_node end_node map obs origin safe_radius safe_mode = (
+fn getAngleRisk origin neighbour min_angle max_angle = (
+    direction = neighbour.world_position - origin.pos
+    horizontal_plane = [0, 0, 1]
+    ang = angleBetween direction horizontal_plane
+    if ang > min_angle and ang < max_angle then (
+        return 0
+    )
+    else (
+        return 1e9
+    )
+)
+
+fn AStar start_node end_node map obs origin safe_radius min_angle max_angle safe_mode = (
     max_iter = 10000
     cur_iter = 0
     openSet = #()
@@ -323,7 +335,7 @@ fn AStar start_node end_node map obs origin safe_radius safe_mode = (
             
             -- assign g-value for neighbours
             if safe_mode == true then(
-                tentativeG = current.g + getHeuristic current neighbour + getCrowdedRisk current obs safe_radius 1 + getHeightRisk current neighbour
+                tentativeG = current.g + getHeuristic current neighbour + getCrowdedRisk current obs safe_radius 1 + getHeightRisk current neighbour + getAngleRisk origin neighbour min_angle max_angle 
             )
             else(
                 tentativeG = current.g + getHeuristic current neighbour
@@ -349,22 +361,9 @@ fn AStar start_node end_node map obs origin safe_radius safe_mode = (
     return undefined  -- No path found
 )
 
-fn angleBetween direction_A direction_B =
+fn angleBetween v1 v2 =
 (	
-	local dot_prod = direction_A[1] * direction_B[1] + direction_A[2] * direction_B[2]
-	
-	local mag_a = sqrt ((pow direction_A[1] 2) + (pow direction_A[2] 2))
-	local mag_b = sqrt ((pow direction_B[1] 2) + (pow direction_B[2] 2))
-
-	local ans = acos (dot_prod/(mag_a * mag_b))
-	
-	local cross_prod = [0,0,(direction_A[1]*direction_B[2] - direction_B[1]*direction_A[2])]	
-		
-	if cross_prod.z < 0 then (
-        ans = 360 - ans
-    )
-    if ans > 180 then(
-        ans = 360 - ans
-    )
+    ans = acos (dot (normalize v1) (normalize v2))
+    -- if ans < 0 do ans = 360 - ans
 	return ans
 )

@@ -8,15 +8,18 @@ goals = $l* as array
 obs = $Box* as array
 clearance = 1.0
 
-rlt = getMap crane pick obs $l2 clearance
+rlt = getMap crane pick obs $l3 clearance
 start_node = rlt[1]
 end_node = rlt[2]
 map = rlt[3]
 
 safe_radius = 3
-safe_mode = false
+safe_mode = true
 
-ps = AStar start_node end_node map obs crane safe_radius safe_mode
+min_angle = 30
+max_angle = 90
+
+ps = AStar start_node end_node map obs crane safe_radius min_angle max_angle safe_mode
 if ps != undefined then(
     cur_time = 0
     with animate on(
