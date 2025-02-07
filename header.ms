@@ -361,12 +361,29 @@ fn AStar start_node end_node map obs origin safe_radius min_angle max_angle safe
     return undefined  -- No path found
 )
 
-fn angleBetween v1 v2 =
-(	
-    ans = acos (dot (normalize v1) (normalize v2))
-    -- if ans < 0 do ans = 360 - ans
+-- fn angleBetween v1 v2 =
+-- (	
+--     ans = acos (dot (normalize v1) (normalize v2))
+--     -- if ans < 0 do ans = 360 - ans
+-- 	return ans
+-- )
+
+fn getAngle flat2_v1 flat2_v2 = (	
+	local dot_prod = flat2_v1[1] * flat2_v2[1] + flat2_v1[2] * flat2_v2[2]
+	
+	local mag_a = sqrt ((pow flat2_v1[1] 2) + (pow flat2_v1[2] 2))
+	local mag_b = sqrt ((pow flat2_v2[1] 2) + (pow flat2_v2[2] 2))
+
+	local ans = acos (dot_prod/(mag_a * mag_b))
+	
+	local cross_prod = [0,0,(flat2_v1[1]*flat2_v2[2] - flat2_v2[1]*flat2_v1[2])]	
+		
+	if cross_prod.z < 0 then return (360 - ans)
 	return ans
+	
 )
+
+
 
 -- bind the hook to the lower vertex of the given cable
 fn bindToEndVert cable hook = (

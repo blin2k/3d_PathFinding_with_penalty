@@ -18,7 +18,7 @@ hook.transform.position = hook_wp
 -- print(hook.transform.position)
 
 -- get the node map
-rlt = getMap crane pick obs $l2 clearance
+rlt = getMap crane pick obs $l4 clearance
 start_node = rlt[1]
 end_node = rlt[2]
 map = rlt[3]
@@ -33,23 +33,28 @@ ps = AStar start_node end_node map obs crane safe_radius min_angle max_angle saf
 
 -- animation
 print("------------------------------")
+prev = ps[1]
 if ps != undefined then(
     cur_time = 0
     with animate on(
         for p in ps do(
             cur_time = cur_time + 10
             at time cur_time (
-                cur_flat = normalize [pick.pos.x - crane.pos.x, pick.pos.y - crane.pos.x, 0]
-                next_flat = normalize [p.world_position.x - crane.pos.x, p.world_position.y - crane.pos.x, 0]
-                ang = angleBetween cur_flat next_flat
+                print(prev.world_position)
+                print(p.world_position)
+                ang = getAngle [prev.world_position.x, prev.world_position.y] [p.world_position.x, p.world_position.y]
+                if ang != ang do ang = 0
+                -- if (ang >= 0 and ang <= 0.1) or (ang <= 360 or ang >= 359.9) do ang = 0
                 about crane.pivot rotate crane (quat 0 0 (sin ang/2) (cos ang/2))
 
                 -- print(cur_flat)
                 -- print(next_flat)
-                -- print(ang)
-                -- print("---")
+                print(ang)
+                print("---")
+                drawLine prev.world_position p.world_position blue
 
                 pick.pos = p.world_position
+                prev = p
             )
             arr = $path_*
             if arr == undefined then(
