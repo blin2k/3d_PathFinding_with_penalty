@@ -1,4 +1,4 @@
-for a in $s* do(
+for a in $sphere* do(
     delete a
 )
 

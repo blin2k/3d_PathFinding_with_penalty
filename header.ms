@@ -15,7 +15,7 @@ struct cNode(
 )
 
 fn clean = (
-    for a in $s* do(
+    for a in $sphere* do(
         delete a
     )
 
@@ -366,4 +366,117 @@ fn angleBetween v1 v2 =
     ans = acos (dot (normalize v1) (normalize v2))
     -- if ans < 0 do ans = 360 - ans
 	return ans
+)
+
+-- bind the hook to the lower vertex of the given cable
+fn bindToEndVert cable hook = (
+	hook_pos = hook.pos
+	hook.position.controller = Position_XYZ()
+	hook.pos = hook_pos
+	thePoint = point size:10 name:"end_vert"
+    -- if thePoint.position.controller != position_script() then(
+    thePoint.position.controller = position_script()
+    ctrl = thePoint.position.controller
+    ctrl.addNode "cable" cable
+    ctrl.addConstant "curveIndex" 1
+    ctrl.addConstant "vertexIndex" 2
+    ctrl.script = "
+        dependsOn cable
+        getKnotPoint cable curveIndex vertexIndex	
+    "
+    hook.parent = thePoint
+    hook.pos = thePoint.pos
+    -- )
+)
+
+-- extend or shorten the cable until its lower vertex reaches the target height
+fn extendToPos cable target_height = (
+	top = getKnotPoint cable 1 1
+	bot = getKnotPoint cable 1 2
+	k = (top.z - target_height) / (top.z - bot.z)
+	cable.scale.z = cable.scale.z * k
+)
+
+fn extend_boom size =
+(	
+    originRot = $crane.rotation
+    $crane.rotation = quat 0 0 0 1
+------------------- Defining variables -------------------
+	groups_to_add = #($'Boom Box', $'Crane Bottom')
+	boom_box = $'Boom Box'
+	crane_top = $'Crane Top'
+	collector = $'Boom Box'*
+	deleter = #()
+	moverX = 2.2
+	moverZ = 1.859
+    -- moverZ = 0.0
+	global pivot_point = $Point001.position
+	-- How many times to make the boom box
+	num = 0
+	input = ceil (size / 6.0) - 1
+	counter = 1
+		
+------------------- Reset rotation for the code to work -------------------
+	MBoom_position = $'Main BOOM'.position
+	MBoom_rotation = $'Main BOOM'.rotation
+	$'Main BOOM'.rotation = quat 0 0 0 1
+	$'Main BOOM'.position = pivot_point
+
+------------------- Ungroup original grouping to readjust boom length -------------------
+	ungroup $'Main BOOM'
+
+------------------- Delete previous boxes -------------------
+	for obj in collector do
+	(
+		if matchPattern obj.name pattern:"Boom Box0*" then
+		(
+			-- print (obj.name + " has been deleted.")
+			deleter += obj
+		)
+	)
+	delete deleter
+------------------- Creating adjustable boom -------------------
+	while num != input do
+	(
+		maxOps.cloneNodes boom_box cloneType:#instance newNodes:&nnl
+		-- Get location of new box
+		Moving_distance_X = counter * moverX
+		Moving_distance_Z = counter * moverZ
+		move nnl [Moving_distance_X, 0, Moving_distance_Z]
+		num += 1
+		counter += 1
+		groups_to_add += nnl
+	)
+
+------------------- Placing the crane top after the program is finished -------------------
+	counter += input
+	Moving_distance_X = (counter * moverX) - 2.25
+	Moving_distance_Z = (counter * moverZ) - 1.9
+    -- Moving_distance_Z = 0.0
+	crane_top.position = $'Boom Box'.position + [4.779,0,4.988]
+	move crane_top [Moving_distance_X, 0, Moving_distance_Z]
+	groups_to_add += $'Crane Top'
+
+------------------- Group Boom boxes together -------------------
+	group groups_to_add name:"Main BOOM"
+
+------------------- Move pivot point down -------------------
+	global Main_Boom = $'Main BOOM'
+	Main_Boom.pivot = pivot_point			--	[3.982, 3.618, 3.074]
+	Main_Boom.transform = Main_Boom.transform * (matrix3 [1,0,0] [0,1,0] [0,0,1] [0,0,0])
+	Main_Boom.rotation = MBoom_rotation
+	Main_Boom.position = MBoom_position
+		
+	pc = Position_Constraint()
+	$'Main BOOM'.position.controller = pc
+	$'Main BOOM'.position.controller.appendTarget $'phelp_Boom Bar_001' 50
+	oc = Orientation_Constraint()
+	$'Main BOOM'.rotation.controller = oc
+	$'Main BOOM'.rotation.controller.appendTarget $'phelp_Boom Bar_001' 50
+	$'Main BOOM'.rotation.controller.relative = on
+		
+	crane_group = getNodeByName "Crane"
+	attachNodesToGroup #($'Main BOOM') crane_group
+	
+    $crane.rotation = originRot 
 )
