@@ -1,5 +1,5 @@
 global visualize
-visualize = false
+visualize = true
 
 struct cNode(
     public
@@ -22,6 +22,11 @@ fn clean = (
     for b in $path* do(
         delete b
     )
+)
+
+fn getVertAng = (
+    tip = getNodeByName "phelp_Pulley 002"
+    return acos (dot (normalize tip.pos) [0,0,1])
 )
 
 fn getAngle flat2_v1 flat2_v2 = (	
@@ -163,28 +168,28 @@ fn getMap origin start obs goal margin = (
     ob_rays = #()
 
     -- record and collect the rad&ray of the start point
-    start_rad = distance origin.pos start.pos
-    start_ray = Ray origin.pos (start.pos - origin.pos)
+    start_rad = distance origin start.pos
+    start_ray = Ray origin (start.pos - origin)
     append radiuses start_rad
     append rays start_ray
     if visualize == true then(
-        drawLine origin.pos start.pos red
+        drawLine origin start.pos red
     )
 
     -- record and collect the rad&ray of the end point
-    end_rad = distance origin.pos goal.pos
-    end_ray = ray origin.pos (goal.pos - origin.pos)
+    end_rad = distance origin goal.pos
+    end_ray = ray origin (goal.pos - origin)
     append radiuses end_rad
     append rays end_ray
     if visualize == true then(
-        drawLine origin.pos goal.pos red
+        drawLine origin goal.pos red
     )
 
     -- record and collect the rad&ray of the vertices
     verts = getEnvelopesVerts obs margin
     for v in verts do(
-        radius = distance origin.pos v
-        ob_ray = ray origin.pos (v - origin.pos)
+        radius = distance origin v
+        ob_ray = ray origin (v - origin)
 
         append radiuses radius
         append rays ob_ray
@@ -192,7 +197,7 @@ fn getMap origin start obs goal margin = (
         append ob_rays ob_ray
 
         if visualize == true then(
-            drawLine origin.pos v red
+            drawLine origin v red
         )
     )
 
@@ -205,12 +210,18 @@ fn getMap origin start obs goal margin = (
     sort radiuses
     layer_id = 1
     for radius in radiuses do(
-        s = sphere radius:radius pos:origin.pos
+        s = sphere radius:radius pos:origin
         ray_id = 1
         for r in rays do(
             hit = intersectRay s r
             if hit != undefined then(
                 append hits hit.pos
+                -- if hit.pos.z < 0 then(
+                --     posi = [hit.pos.x, hit.pos.y, 0]
+                -- )
+                -- else(
+                --     posi = hit.pos
+                -- )
                 cur_grid = cNode layer_id:layer_id ray_id:ray_id h:(distance hit.pos goal.pos) world_position:hit.pos
 
                 if visualize == true then(
@@ -265,7 +276,7 @@ fn getNeighbours cur_node map obs origin = (
     cur_ray = cur_node.ray_id
     neighbours = #()
     for p in map do(
-        if p.layer_id == cur_layer or p.ray_id == cur_ray then(
+        if p.world_position.z >= 0 and (p.layer_id == cur_layer or p.ray_id == cur_ray) then(
             if not isPathBlocked cur_node.world_position p.world_position obs then (
                 for ob in obs do(
                     -- s = sphere pos:p.world_position radius:0.1
@@ -283,11 +294,12 @@ fn getHeuristic current neighbour = (
     return (distance current.world_position neighbour.world_position)
 )
 
-fn getAngleRisk origin neighbour min_angle max_angle = (
-    direction = neighbour.world_position - origin.pos
+fn getAngleRisk centor neighbour min_angle max_angle = (
+    direction = neighbour.world_position - centor
     horizontal_plane = [0, 0, 1]
     -- ang = angleBetween direction horizontal_plane
     ang = getAngle direction horizontal_plane
+    -- ang = acos (dot (normalize direction) horizontal_plane)
     if ang > min_angle and ang < max_angle then (
         return 0
     )
@@ -296,7 +308,7 @@ fn getAngleRisk origin neighbour min_angle max_angle = (
     )
 )
 
-fn AStar start_node end_node map obs origin safe_radius min_angle max_angle safe_mode = (
+fn AStar start_node end_node map obs origin safe_radius min_angle max_angle safe_mode centor = (
     max_iter = 10000
     cur_iter = 0
     openSet = #()
@@ -351,10 +363,10 @@ fn AStar start_node end_node map obs origin safe_radius min_angle max_angle safe
             
             -- assign g-value for neighbours
             if safe_mode == true then(
-                tentativeG = current.g + getHeuristic current neighbour + getCrowdedRisk current obs safe_radius 1 + getHeightRisk current neighbour + getAngleRisk origin neighbour min_angle max_angle 
+                tentativeG = current.g + 1 + getHeuristic current neighbour + getCrowdedRisk current obs safe_radius 1 + getHeightRisk current neighbour + getAngleRisk centor neighbour min_angle max_angle 
             )
             else(
-                tentativeG = current.g + getHeuristic current neighbour
+                tentativeG = current.g + 1 + getHeuristic current neighbour
             )
             
             -- the neighbour is better than the current node if
@@ -495,4 +507,11 @@ fn extend_boom size =
 	attachNodesToGroup #($'Main BOOM') crane_group
 	
     $crane.rotation = originRot 
+)
+
+fn extend_to_top p = (
+    theta = getVertAng()
+    flat_dist = distance [p.world_position.x, p.world_position.y, 0] [0,0,0]
+    len = flat_dist/(sin theta)
+    extend_boom len
 )
