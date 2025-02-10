@@ -24,6 +24,21 @@ fn clean = (
     )
 )
 
+fn getAngle flat2_v1 flat2_v2 = (	
+	local dot_prod = flat2_v1[1] * flat2_v2[1] + flat2_v1[2] * flat2_v2[2]
+	
+	local mag_a = sqrt ((pow flat2_v1[1] 2) + (pow flat2_v1[2] 2))
+	local mag_b = sqrt ((pow flat2_v2[1] 2) + (pow flat2_v2[2] 2))
+
+	local ans = acos (dot_prod/(mag_a * mag_b))
+	
+	local cross_prod = [0,0,(flat2_v1[1]*flat2_v2[2] - flat2_v2[1]*flat2_v1[2])]	
+		
+	if cross_prod.z < 0 then return (360 - ans)
+	return ans
+	
+)
+
 fn drawLine source endpoint colour = (
     s = SplineShape()
     addNewSpline s
@@ -271,7 +286,8 @@ fn getHeuristic current neighbour = (
 fn getAngleRisk origin neighbour min_angle max_angle = (
     direction = neighbour.world_position - origin.pos
     horizontal_plane = [0, 0, 1]
-    ang = angleBetween direction horizontal_plane
+    -- ang = angleBetween direction horizontal_plane
+    ang = getAngle direction horizontal_plane
     if ang > min_angle and ang < max_angle then (
         return 0
     )
@@ -367,23 +383,6 @@ fn AStar start_node end_node map obs origin safe_radius min_angle max_angle safe
 --     -- if ans < 0 do ans = 360 - ans
 -- 	return ans
 -- )
-
-fn getAngle flat2_v1 flat2_v2 = (	
-	local dot_prod = flat2_v1[1] * flat2_v2[1] + flat2_v1[2] * flat2_v2[2]
-	
-	local mag_a = sqrt ((pow flat2_v1[1] 2) + (pow flat2_v1[2] 2))
-	local mag_b = sqrt ((pow flat2_v2[1] 2) + (pow flat2_v2[2] 2))
-
-	local ans = acos (dot_prod/(mag_a * mag_b))
-	
-	local cross_prod = [0,0,(flat2_v1[1]*flat2_v2[2] - flat2_v2[1]*flat2_v1[2])]	
-		
-	if cross_prod.z < 0 then return (360 - ans)
-	return ans
-	
-)
-
-
 
 -- bind the hook to the lower vertex of the given cable
 fn bindToEndVert cable hook = (

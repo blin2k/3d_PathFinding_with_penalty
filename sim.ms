@@ -34,18 +34,20 @@ ps = AStar start_node end_node map obs crane safe_radius min_angle max_angle saf
 -- animation
 print("------------------------------")
 prev = ps[1]
+animationRange = interval 0 (ps.count * 10)
 if ps != undefined then(
     cur_time = 0
     with animate on(
         for p in ps do(
-            cur_time = cur_time + 10
+            cur_time = cur_time + 120
             at time cur_time (
-                print(prev.world_position)
-                print(p.world_position)
-                ang = getAngle [prev.world_position.x, prev.world_position.y] [p.world_position.x, p.world_position.y]
+                f1 = normalize [prev.world_position.x, prev.world_position.y] 
+                f2 = normalize [p.world_position.x, p.world_position.y]
+                ang = getAngle f1 f2
                 if ang != ang do ang = 0
                 -- if (ang >= 0 and ang <= 0.1) or (ang <= 360 or ang >= 359.9) do ang = 0
-                about crane.pivot rotate crane (quat 0 0 (sin ang/2) (cos ang/2))
+                -- about crane.pivot rotate crane (quat 0 0 (sin ang/2) (cos ang/2))
+                about crane.pivot rotate crane (eulerangles 0 0 ang)
 
                 -- print(cur_flat)
                 -- print(next_flat)
@@ -66,7 +68,6 @@ if ps != undefined then(
             s_name = ("path_" + cnt as string)
             sphere pos:p.world_position radius:0.5 color:red name:s_name
         )
-        animationRange = interval 0 cur_time
     )
 )
 else(
