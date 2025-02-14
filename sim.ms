@@ -4,22 +4,9 @@ filein "crane.ms"
 clean() -- clean the extra parts in the scene
 
 -- important parts
-crane = getNodeByName "Spinner_001"
-pick = getNodeByName "pick"
-cable = getNodeByName "Hook Cable"
-hook = getNodeByName "Crane Hook"
-pulley = getNodeByName "phelp_Pulley 002"
 goals = $l* as array
 obs = $Box* as array
 clearance = 1.0
-
-hook_wp = hook.transform.position
-bindToEndVert cable hook -- make sure the cable is extendable
-hook.transform.position = hook_wp
-extendToPos cable 3
-cable_len = pulley.pos.z
-
-center = crane.pos - [0,0,cable_len]
 
 -- get the node map
 rlt = getMap center pick obs $l3 clearance
@@ -50,7 +37,7 @@ if ps != undefined then(
                 f2 = normalize [p.world_position.x, p.world_position.y]
                 ang = getAngle f1 f2
                 if ang != ang do ang = 0
-                about crane.pivot rotate crane (eulerangles 0 0 ang)
+
                 if distance p.world_position center == distance prev.world_position center then(
                     colour = blue
                     at time 0 (
