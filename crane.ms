@@ -1,3 +1,5 @@
+filein "common.ms"
+
 global min_len = 22
 global max_len = 72
 global inner_sec = 6
@@ -32,7 +34,7 @@ fn rescaleBoom len = (
     
 )
 
-fn rotateSpinner theta isClockwise = (
+fn pitchSpinner theta isClockwise = (
     theta = mod theta 360
 
     spinner = $spinner
@@ -42,4 +44,37 @@ fn rotateSpinner theta isClockwise = (
     else(
         rotate $spinner (eulerangles 0 0 -theta)
     )
+)
+
+fn getPlaneNormal edge core center =
+(
+    local v1 = edge - core
+    local v2 = center - core
+    
+    local normal = cross v1 v2
+    
+    return normalize normal
+)
+
+fn yawSpinner theta isDown = (
+    cur = getNodeByName "cable&hook"
+    orth = getPlaneNormal cur.pos $core.pos $center.pos
+    local rotQuat = angleaxis theta orth
+    if isDown != true do rotQuat = -rotQuat
+    about $core rotate $level1 rotQuat
+)
+
+fn moveSpinner p = (
+    cur = (getNodeByName "cable&hook").pos - $center.pos
+    goal = p.world_position - $center.pos
+    -- goal = p
+
+    cur_f = [cur.x, cur.y, 0]
+    goal_f = [goal.x, goal.y, 0]
+    theta_f = getAngle cur_f goal_f
+    print("----")
+    print(cur_f)
+    print(goal_f)
+    print(theta_f)
+    pitchSpinner theta_f false
 )

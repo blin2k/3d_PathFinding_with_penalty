@@ -1,3 +1,5 @@
+filein "common.ms"
+
 global visualize
 visualize = false
 
@@ -24,20 +26,47 @@ fn clean = (
     )
 )
 
-fn getAngle flat2_v1 flat2_v2 = (	
-	local dot_prod = flat2_v1[1] * flat2_v2[1] + flat2_v1[2] * flat2_v2[2]
-	
-	local mag_a = sqrt ((pow flat2_v1[1] 2) + (pow flat2_v1[2] 2))
-	local mag_b = sqrt ((pow flat2_v2[1] 2) + (pow flat2_v2[2] 2))
-
-	local ans = acos (dot_prod/(mag_a * mag_b))
-	
-	local cross_prod = [0,0,(flat2_v1[1]*flat2_v2[2] - flat2_v2[1]*flat2_v1[2])]	
-		
-	if cross_prod.z < 0 then return (360 - ans)
-	return ans
-	
+fn vectorsAreEqual v1 v2 eps:1e-6 =
+(
+    -- Compare length of difference with epsilon
+    return (length (v1 - v2)) < eps
 )
+
+
+fn isSameArc prev p center = (
+    -- return distance p.world_position center == distance prev.world_position center
+    v1 = normalize (p.world_position - center)
+    v2 = normalize (prev.world_position - center) 
+    print("v1: " + v1 as string)
+    print("v2: " + v2 as string)
+
+    return vectorsAreEqual v1 v2
+)
+
+-- fn getAngle prev p = (	
+
+--     if classOf prev != Point3 then(
+--         flat2_v1 = normalize [prev.world_position.x, prev.world_position.y] 
+--         flat2_v2 = normalize [p.world_position.x, p.world_position.y]
+--     )
+--     else(
+--         flat2_v1 = normalize [prev.x, prev.y] 
+--         flat2_v2 = normalize [p.x, p.y]
+--     )
+
+-- 	local dot_prod = flat2_v1[1] * flat2_v2[1] + flat2_v1[2] * flat2_v2[2]
+	
+-- 	local mag_a = sqrt ((pow flat2_v1[1] 2) + (pow flat2_v1[2] 2))
+-- 	local mag_b = sqrt ((pow flat2_v2[1] 2) + (pow flat2_v2[2] 2))
+
+-- 	local ans = acos (dot_prod/(mag_a * mag_b))
+	
+-- 	local cross_prod = [0,0,(flat2_v1[1]*flat2_v2[2] - flat2_v2[1]*flat2_v1[2])]	
+		
+-- 	if cross_prod.z < 0 then return (360 - ans)
+-- 	return ans
+	
+-- )
 
 fn drawLine source endpoint colour = (
     s = SplineShape()
@@ -390,3 +419,69 @@ fn AStar start_node end_node map obs origin safe_radius min_angle max_angle safe
 --     -- if ans < 0 do ans = 360 - ans
 -- 	return ans
 -- )
+
+fn drawArc centerPoint startPoint endPoint =
+(
+    --------------------------------------------------------------------------
+    -- 1) Compute vectors and check collinearity
+    --------------------------------------------------------------------------
+    local v1 = startPoint - centerPoint
+    local v2 = endPoint   - centerPoint
+    
+    local normalVec = cross v1 v2
+    local normalLen = length normalVec
+    if normalLen < 1e-6 do
+    (
+        format "Cannot create arc: the points are collinear.\n"
+        return undefined
+    )
+    
+    --------------------------------------------------------------------------
+    -- 2) Define a local coordinate system where:
+    --    * The origin is 'centerPoint'
+    --    * The local X axis points from center -> start (v1)
+    --    * The local Z axis is the plane normal
+    --    * The local Y axis is their cross
+    --------------------------------------------------------------------------
+    local r    = length v1              -- radius = distance from center to start
+    local xAxis = normalize v1          -- local X
+    local zAxis = normalize normalVec   -- local Z
+    local yAxis = cross zAxis xAxis     -- local Y (right-handed system)
+    
+    --------------------------------------------------------------------------
+    -- 3) Convert v1, v2 to local coordinates in that system
+    --    In local coords, start should be roughly (r, 0, 0)
+    --------------------------------------------------------------------------
+    -- Dot each vector with our local X/Y/Z to see its local x,y,z
+    local stLocal = [dot v1 xAxis, dot v1 yAxis, dot v1 zAxis]
+    local enLocal = [dot v2 xAxis, dot v2 yAxis, dot v2 zAxis]
+    
+    --------------------------------------------------------------------------
+    -- 4) Compute each point's polar angle around local Z using atan2(y, x)
+    --    The difference gives the sweep angle from v1 to v2
+    --------------------------------------------------------------------------
+    local startAng = atan2 stLocal.y stLocal.x   -- angle of start in local XY
+    local endAng   = atan2 enLocal.y enLocal.x   -- angle of end   in local XY
+    local angleRad = endAng - startAng
+    
+    -- If negative, wrap it into [0..2π]
+    if angleRad < 0.0 do angleRad += 2.0*pi
+    
+    local angleDeg = angleRad * 180.0 / pi
+    -- At this point, angleDeg is guaranteed to be in [0..360]
+
+    --------------------------------------------------------------------------
+    -- 5) Create the Arc shape in local XY plane (no weird large angles)
+    --    We'll sweep from 0 to 'angleDeg'.
+    --------------------------------------------------------------------------
+    local theArc = arc name:"ArcBetween3Points" radius:r from:0 to:angleDeg wirecolor:yellow
+
+    --------------------------------------------------------------------------
+    -- 6) Finally, position/orient the arc in world space
+    --    so that local X -> xAxis, local Y -> yAxis, local Z -> zAxis
+    --------------------------------------------------------------------------
+    local tM = matrix3 xAxis yAxis zAxis centerPoint
+    theArc.transform = tM
+    
+    return theArc
+)
