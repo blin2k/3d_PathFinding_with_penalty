@@ -34,7 +34,7 @@ fn rescaleBoom len = (
     
 )
 
-fn pitchSpinner theta isClockwise = (
+fn yawSpinner theta isClockwise = (
     theta = mod theta 360
 
     spinner = $spinner
@@ -56,7 +56,7 @@ fn getPlaneNormal edge core center =
     return normalize normal
 )
 
-fn yawSpinner theta isDown = (
+fn pitchSpinner theta isDown = (
     cur = getNodeByName "cable&hook"
     orth = getPlaneNormal cur.pos $core.pos $center.pos
     local rotQuat = angleaxis theta orth
@@ -72,9 +72,5 @@ fn moveSpinner p = (
     cur_f = [cur.x, cur.y, 0]
     goal_f = [goal.x, goal.y, 0]
     theta_f = getAngle cur_f goal_f
-    print("----")
-    print(cur_f)
-    print(goal_f)
-    print(theta_f)
-    pitchSpinner theta_f false
+    yawSpinner theta_f false
 )
