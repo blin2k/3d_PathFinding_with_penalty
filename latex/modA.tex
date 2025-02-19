@@ -1,0 +1,37 @@
+\documentclass{article}
+\usepackage{algorithm}
+\usepackage[noend]{algpseudocode}
+
+\begin{document}
+
+\setcounter{algorithm}{1}
+
+\begin{algorithm}
+\caption{Safety-Aware A*}
+\begin{algorithmic}[1]
+    \State OPEN $\gets$ \texttt{PriorityQueue()}
+    \State CLOSED $\gets$ \texttt{List()}
+    \State START\_NODE.g $\gets 0$
+    \State START\_NODE.f $\gets$ heuristic(START, GOAL)
+    \State OPEN.add(START\_NODE)
+    \While{OPEN is not empty}
+        \State current $\gets$ OPEN.pop\_lowest\_f()
+        \If{current equals GOAL}
+            \State \Return path
+        \EndIf
+        \For{each neighbor in get\_neighbors(current)}
+            \State safety\_cost $\gets$ height\_risk $+$ crowding\_risk $+$ angle\_risk
+            \State movement\_cost $\gets$ distance(current, neighbor)
+            \State tentative\_g $\gets$ current.g $+$ movement\_cost $+$ safety\_cost
+            \If{tentative\_g $<$ neighbor.g}
+                \State neighbor.parent $\gets$ current
+                \State neighbor.g $\gets$ tentative\_g
+                \State neighbor.f $\gets$ neighbor.g $+$ heuristic(neighbor, GOAL)
+                \State OPEN.add(neighbor)
+            \EndIf
+        \EndFor
+    \EndWhile
+\end{algorithmic}
+\end{algorithm}
+
+\end{document}

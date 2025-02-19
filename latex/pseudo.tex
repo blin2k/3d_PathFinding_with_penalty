@@ -1,0 +1,31 @@
+\documentclass{article}
+\usepackage{algorithm}
+\usepackage[noend]{algpseudocode}
+
+\begin{document}
+
+\begin{algorithm}
+\caption{Sphere-Radial Node Generation}
+\begin{algorithmic}[1]
+    \State \textbf{Define:} Origin (crane base position)
+    \State \textbf{Collect critical points:}
+    \begin{itemize}
+        \item Start/end positions
+        \item Obstacle vertices expanded by safety margin
+    \end{itemize}
+    \For{each critical point}
+        \State Calculate radial distance from origin
+        \State Create virtual sphere at calculated radius
+        \State Cast radial rays to sphere surface
+    \EndFor
+    \State \textbf{Generate} \texttt{cNode} objects at ray-sphere intersections:
+    \begin{itemize}
+        \item \texttt{layer\_id} = radial distance tier
+        \item \texttt{ray\_id} = angular direction identifier
+        \item \texttt{world\_position} = 3D coordinates
+    \end{itemize}
+    \State Prune nodes colliding with obstacles
+\end{algorithmic}
+\end{algorithm}
+
+\end{document}
