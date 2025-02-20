@@ -26,8 +26,8 @@ fn rescaleBoom len = (
     dir = normalize ($level6.pos - $core.pos)
     sector_num = ((len - 22)/10 as integer)
 
-    for i in 0 to sector_num do(
-        cur_sector_name = "level" + (inner_sec - i) as string
+    for i in 0 to (sector_num - 1) do(
+        cur_sector_name = "level" + ((inner_sec - i) as integer) as string
         cur_sector = getNodeByName cur_sector_name
         cur_sector.pos = cur_sector.pos + 10 * dir
     )
@@ -37,12 +37,12 @@ fn rescaleBoom len = (
 fn pitchSpinner theta isClockwise = (
     theta = mod theta 360
 
-    spinner = $spinner
+    spinner = $center
     if isClockwise != true then (
-        rotate $spinner (eulerangles 0 0 theta)
+        about $center rotate $spinner (eulerangles 0 0 theta)
     )
     else(
-        rotate $spinner (eulerangles 0 0 -theta)
+        about $center rotate $spinner (eulerangles 0 0 -theta)
     )
 )
 
@@ -77,4 +77,10 @@ fn moveSpinner p = (
     print(goal_f)
     print(theta_f)
     pitchSpinner theta_f false
+
+    d = distance $base.pos p.world_position
+    print($base)
+    print(p.world_position)
+    print("distance: " + d as string)
+    rescaleBoom d
 )

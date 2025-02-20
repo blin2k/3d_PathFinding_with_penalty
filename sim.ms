@@ -55,6 +55,7 @@ if ps != undefined then(
                 moveSpinner p
 
                 pick.pos = p.world_position
+                print(pick.pos as string + " " + p.world_position as string)
                 prev = p
             )
             arr = $path_*

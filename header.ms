@@ -37,8 +37,8 @@ fn isSameArc prev p center = (
     -- return distance p.world_position center == distance prev.world_position center
     v1 = normalize (p.world_position - center)
     v2 = normalize (prev.world_position - center) 
-    print("v1: " + v1 as string)
-    print("v2: " + v2 as string)
+    -- print("v1: " + v1 as string)
+    -- print("v2: " + v2 as string)
 
     return vectorsAreEqual v1 v2
 )
