@@ -37,6 +37,8 @@ fn isSameArc prev p center = (
     -- return distance p.world_position center == distance prev.world_position center
     v1 = normalize (p.world_position - center)
     v2 = normalize (prev.world_position - center) 
+    -- print("v1: " + v1 as string)
+    -- print("v2: " + v2 as string)
 
     return vectorsAreEqual v1 v2
 )
@@ -421,7 +423,7 @@ fn AStar start_node end_node map obs origin safe_radius min_angle max_angle safe
 fn drawArc centerPoint startPoint endPoint =
 (
     --------------------------------------------------------------------------
-    -- 1) Compute vectors and check collinearity
+    -- 1. Compute vectors and check collinearity
     --------------------------------------------------------------------------
     local v1 = startPoint - centerPoint
     local v2 = endPoint   - centerPoint
@@ -435,7 +437,7 @@ fn drawArc centerPoint startPoint endPoint =
     )
     
     --------------------------------------------------------------------------
-    -- 2) Define a local coordinate system where:
+    -- 2. Define a local coordinate system where:
     --    * The origin is 'centerPoint'
     --    * The local X axis points from center -> start (v1)
     --    * The local Z axis is the plane normal
@@ -447,7 +449,7 @@ fn drawArc centerPoint startPoint endPoint =
     local yAxis = cross zAxis xAxis     -- local Y (right-handed system)
     
     --------------------------------------------------------------------------
-    -- 3) Convert v1, v2 to local coordinates in that system
+    -- 3. Convert v1, v2 to local coordinates in that system
     --    In local coords, start should be roughly (r, 0, 0)
     --------------------------------------------------------------------------
     -- Dot each vector with our local X/Y/Z to see its local x,y,z
@@ -455,7 +457,7 @@ fn drawArc centerPoint startPoint endPoint =
     local enLocal = [dot v2 xAxis, dot v2 yAxis, dot v2 zAxis]
     
     --------------------------------------------------------------------------
-    -- 4) Compute each point's polar angle around local Z using atan2(y, x)
+    -- 4. Compute each point's polar angle around local Z using atan2(y, x)
     --    The difference gives the sweep angle from v1 to v2
     --------------------------------------------------------------------------
     local startAng = atan2 stLocal.y stLocal.x   -- angle of start in local XY
@@ -469,13 +471,13 @@ fn drawArc centerPoint startPoint endPoint =
     -- At this point, angleDeg is guaranteed to be in [0..360]
 
     --------------------------------------------------------------------------
-    -- 5) Create the Arc shape in local XY plane (no weird large angles)
+    -- 5. Create the Arc shape in local XY plane (no weird large angles)
     --    We'll sweep from 0 to 'angleDeg'.
     --------------------------------------------------------------------------
     local theArc = arc name:"ArcBetween3Points" radius:r from:0 to:angleDeg wirecolor:yellow
 
     --------------------------------------------------------------------------
-    -- 6) Finally, position/orient the arc in world space
+    -- 6. Finally, position/orient the arc in world space
     --    so that local X -> xAxis, local Y -> yAxis, local Z -> zAxis
     --------------------------------------------------------------------------
     local tM = matrix3 xAxis yAxis zAxis centerPoint
