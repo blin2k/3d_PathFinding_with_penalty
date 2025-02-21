@@ -59,8 +59,8 @@ fn getPlaneNormal edge core center =
 fn pitchSpinner theta isDown = (
     cur = getNodeByName "cable&hook"
     orth = getPlaneNormal cur.pos $core.pos $center.pos
+    if isDown != true do theta = -theta
     local rotQuat = angleaxis theta orth
-    if isDown != true do rotQuat = -rotQuat
     about $core rotate $level1 rotQuat
 )
 

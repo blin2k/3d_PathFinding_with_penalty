@@ -280,6 +280,7 @@ fn getMap origin start obs goal margin = (
         layer_id += 1
     )
     append rlt grids
+    if rlt.count == 0 do (messageBox("No solution found"))
     return rlt
 )
 
