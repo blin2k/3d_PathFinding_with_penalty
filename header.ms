@@ -24,6 +24,7 @@ fn clean = (
     for b in $path* do(
         delete b
     )
+    -- for c in 
 )
 
 fn vectorsAreEqual v1 v2 eps:1e-6 =
@@ -315,7 +316,7 @@ fn getNeighbours cur_node map obs origin = (
     return neighbours
 )
 
-fn getHeuristic current neighbour = (
+fn getDistance current neighbour = (
     return (distance current.world_position neighbour.world_position)
 )
 
@@ -334,6 +335,7 @@ fn getAngleRisk center neighbour min_angle max_angle = (
 )
 
 fn AStar start_node end_node map obs origin safe_radius min_angle max_angle safe_mode center = (
+    if safe_mode == true then print("With risk penalty") else print("Without penalty")
     max_iter = 10000
     cur_iter = 0
     openSet = #()
@@ -371,6 +373,7 @@ fn AStar start_node end_node map obs origin safe_radius min_angle max_angle safe
                 insertItem node path 1
                 node = node.parent
             )
+            print("It took " + cur_iter as string + " loops")
             return path
         )
         
@@ -388,10 +391,12 @@ fn AStar start_node end_node map obs origin safe_radius min_angle max_angle safe
             
             -- assign g-value for neighbours
             if safe_mode == true then(
-                tentativeG = current.g + 1 + getHeuristic current neighbour + getCrowdedRisk current obs safe_radius 1 + getHeightRisk current neighbour + getAngleRisk center neighbour min_angle max_angle 
+                -- tentativeG = current.g + 1 + (getCrowdedRisk current obs safe_radius 30) + 10 * (getHeightRisk current neighbour) + getAngleRisk center neighbour min_angle max_angle 
+                tentativeG = current.g +  getCrowdedRisk current obs safe_radius 30 + 10 * (getHeightRisk current neighbour) + getAngleRisk center neighbour min_angle max_angle 
             )
             else(
-                tentativeG = current.g + 1 + getHeuristic current neighbour
+                -- tentativeG = current.g + 1
+                tentativeG = current.g + getDistance current neighbour
             )
             
             -- the neighbour is better than the current node if
