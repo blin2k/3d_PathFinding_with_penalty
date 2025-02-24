@@ -25,7 +25,10 @@ center = $center.pos
 pick = $pick
 
 -- get the node map
-rlt = getMap center pick obs $l2 clearance
+s1 = timestamp()
+rlt = getMap center pick obs $l3 clearance
+s2 = timestamp()
+print("Map: " + (mod (s2 - s1) 1000) as string)
 start_node = rlt[1]
 end_node = rlt[2]
 map = rlt[3]
@@ -39,7 +42,9 @@ max_angle = 90
 boom_len = 60
 
 ps = AStar start_node end_node map obs crane safe_radius min_angle max_angle safe_mode center
-
+s3 = timestamp()
+print("Path: " + (mod (s3 - s2) 1000) as string)
+print("Total: " + (mod (s3 - s1) 1000) as string)
 -- print(ps)
 
 total_dist = 0.0
@@ -91,10 +96,10 @@ if ps != undefined then(
                 theta = getAngle prev p
                 if theta != theta do theta = 0
 
-                if isSameArc prev p center then(
+                if not isSameRay prev p center then(
                     colour = blue
                     at time 0 (
-                        -- drawArc center prev.world_position p.world_position
+                        drawArc center prev.world_position p.world_position "Arc_real"
                     )
                 )
                 else(

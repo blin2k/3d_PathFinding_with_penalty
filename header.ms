@@ -34,7 +34,7 @@ fn vectorsAreEqual v1 v2 eps:1e-6 =
 )
 
 
-fn isSameArc prev p center = (
+fn isSameRay prev p center = (
     -- return distance p.world_position center == distance prev.world_position center
     v1 = normalize (p.world_position - center)
     v2 = normalize (prev.world_position - center) 
@@ -78,6 +78,63 @@ fn drawLine source endpoint colour = (
     updateShape s
 )
 
+fn drawArc centerPoint startPoint endPoint arc_name =(
+    --------------------------------------------------------------------------
+    -- 1. Compute vectors and check collinearity
+    --------------------------------------------------------------------------
+    local v1 = startPoint - centerPoint
+    local v2 = endPoint   - centerPoint
+    
+    local normalVec = cross v1 v2
+    local normalLen = length normalVec
+    if normalLen < 1e-6 do (
+        format "Cannot create arc: the points are collinear.\n"
+        return undefined
+    )
+    
+    --------------------------------------------------------------------------
+    -- 2. Define a local coordinate system where:
+    --    * The origin is 'centerPoint'
+    --    * The local X axis points from center -> start (v1)
+    --    * The local Z axis is the plane normal
+    --    * The local Y axis is their cross
+    --------------------------------------------------------------------------
+    local r    = length v1              -- radius = distance from center to start
+    local xAxis = normalize v1          -- local X
+    local zAxis = normalize normalVec   -- local Z
+    local yAxis = cross zAxis xAxis     -- local Y (right-handed system)
+    
+    --------------------------------------------------------------------------
+    -- 3. Convert v1, v2 to local coordinates in that system
+    --    In local coords, start should be roughly (r, 0, 0)
+    --------------------------------------------------------------------------
+    -- Dot each vector with our local X/Y/Z to see its local x,y,z
+    local stLocal = [dot v1 xAxis, dot v1 yAxis, dot v1 zAxis]
+    local enLocal = [dot v2 xAxis, dot v2 yAxis, dot v2 zAxis]
+
+    --------------------------------------------------------------------------
+    -- 4. Compute each point's polar angle around local Z using atan2(y, x)
+    --    The difference gives the sweep angle from v1 to v2
+    --------------------------------------------------------------------------
+    st = normalize stLocal
+    en = normalize enLocal
+    t = acos (dot st en)
+    --------------------------------------------------------------------------
+    -- 5. Create the Arc shape in local XY plane (no weird large angles)
+    --    We'll sweep from 0 to 'angleDeg'.
+    --------------------------------------------------------------------------
+    local theArc = arc name:arc_name radius:r from:0 to:t wirecolor:yellow
+
+    --------------------------------------------------------------------------
+    -- 6. Finally, position/orient the arc in world space
+    --    so that local X -> xAxis, local Y -> yAxis, local Z -> zAxis
+    --------------------------------------------------------------------------
+    local tM = matrix3 xAxis yAxis zAxis centerPoint
+    theArc.transform = tM
+    
+    return theArc
+)
+
 fn getObVerts ob = (
     verts = #()
     if ClassOf ob == Box then(
@@ -89,6 +146,78 @@ fn getObVerts ob = (
         append verts v
     )
     return verts
+)
+
+/*
+    Returns true if the arc from pStart to pEnd (centered at c) 
+    intersects the axis-aligned box defined by boxMin and boxMax.
+    
+    - c       : Point3, center of the arc’s circle
+    - pStart  : Point3, start point on the circle
+    - pEnd    : Point3, end point on the circle
+    - boxMin  : Point3, minimum corner (xMin, yMin, zMin) of the cube
+    - boxMax  : Point3, maximum corner (xMax, yMax, zMax) of the cube
+    - numSamples : Integer, how many points to sample along the arc
+*/
+fn isArcIntersectsCube c pStart pEnd boxMin boxMax numSamples:32 =
+(
+    -- 1) Compute radius
+    local R = distance c pStart
+    
+    -- 2) Define the plane normal of the circle:
+    --    n = (pStart - c) x (pEnd - c)
+    local vStart = pStart - c
+    local vEnd   = pEnd   - c
+    local n = normalize (cross vStart vEnd)
+    
+    -- 3) Build two orthonormal vectors u, v in the circle plane.
+    --    Let u = normalized vStart, and v = n x u.
+    local u = normalize vStart
+    local v = cross n u
+    
+    -- 4) Compute angles for pStart and pEnd w.r.t. u, v.
+    --    pStart = c + R (cos(thetaStart)*u + sin(thetaStart)*v)
+    --    pEnd   = c + R (cos(thetaEnd)*u   + sin(thetaEnd)*v)
+    --    In practice, dot & cross can give the angle from u to vEnd.
+
+    -- Let's define: 
+    --    thetaStart = 0  (since pStart is our reference direction, i.e. "u")
+    -- Then find the angle from pStart to pEnd using dot and cross:
+    local cosVal   = dot (normalize vStart) (normalize vEnd)
+    local angle    = acos (cosVal)
+    local crossDir = dot (cross (normalize vStart) (normalize vEnd)) n
+    
+    -- We'll say: if crossDir >= 0, then arc goes from 0 to +angle,
+    --            else from 0 to -angle. 
+    -- This is a simplistic orientation check.
+    local thetaStart = 0.0
+    local thetaEnd   = angle
+    if (crossDir < 0) do (
+        thetaEnd = -angle
+    )
+    
+    -- 5) Now sample the arc from thetaStart to thetaEnd:
+    local stepCount = numSamples as float
+    local stepAngle = (thetaEnd - thetaStart) / stepCount
+    
+    for i = 0 to numSamples do
+    (
+        local t = thetaStart + i * stepAngle
+        -- Parametric point on the arc:
+        local p = c + R * (u * cos t + v * sin t)
+        
+        -- 6) Check if p is within the cube's bounding box
+        if (p.x >= boxMin.x AND p.x <= boxMax.x) AND \
+           (p.y >= boxMin.y AND p.y <= boxMax.y) AND \
+           (p.z >= boxMin.z AND p.z <= boxMax.z) then
+        (
+            return true  -- found an intersection
+        )
+    )
+    
+    -- If we never found a point inside the bounding box, 
+    -- assume no intersection (with the given sampling).
+    return false
 )
 
 fn isCollide obj1 obj2 =(
@@ -286,12 +415,23 @@ fn getMap origin start obs goal margin = (
 )
 
 fn isPathBlocked from_pos to_pos obs = (
-    r = ray from_pos (to_pos - from_pos)
-    for ob in obs do(
-        hit = intersectRay ob r
-        if hit != undefined then(
-            -- print(hit)
-            return true
+    v1 = normalize (from_pos - $center.pos)
+    v2 = normalize (to_pos - $center.pos)
+    if vectorsAreEqual v1 v2 then(
+        r = ray from_pos (to_pos - from_pos)
+        for ob in obs do(
+            hit = intersectRay ob r
+            if hit != undefined then(
+                return true
+            )
+        )
+    )
+    else(
+        for ob in obs do(
+            bbox = getNodeBBox ob
+            if isArcIntersectsCube $center.pos from_pos to_pos bbox.min bbox.max do(
+                return true
+            )
         )
     )
     return false
@@ -425,69 +565,3 @@ fn AStar start_node end_node map obs origin safe_radius min_angle max_angle safe
 --     -- if ans < 0 do ans = 360 - ans
 -- 	return ans
 -- )
-
-fn drawArc centerPoint startPoint endPoint =
-(
-    --------------------------------------------------------------------------
-    -- 1. Compute vectors and check collinearity
-    --------------------------------------------------------------------------
-    local v1 = startPoint - centerPoint
-    local v2 = endPoint   - centerPoint
-    
-    local normalVec = cross v1 v2
-    local normalLen = length normalVec
-    if normalLen < 1e-6 do
-    (
-        format "Cannot create arc: the points are collinear.\n"
-        return undefined
-    )
-    
-    --------------------------------------------------------------------------
-    -- 2. Define a local coordinate system where:
-    --    * The origin is 'centerPoint'
-    --    * The local X axis points from center -> start (v1)
-    --    * The local Z axis is the plane normal
-    --    * The local Y axis is their cross
-    --------------------------------------------------------------------------
-    local r    = length v1              -- radius = distance from center to start
-    local xAxis = normalize v1          -- local X
-    local zAxis = normalize normalVec   -- local Z
-    local yAxis = cross zAxis xAxis     -- local Y (right-handed system)
-    
-    --------------------------------------------------------------------------
-    -- 3. Convert v1, v2 to local coordinates in that system
-    --    In local coords, start should be roughly (r, 0, 0)
-    --------------------------------------------------------------------------
-    -- Dot each vector with our local X/Y/Z to see its local x,y,z
-    local stLocal = [dot v1 xAxis, dot v1 yAxis, dot v1 zAxis]
-    local enLocal = [dot v2 xAxis, dot v2 yAxis, dot v2 zAxis]
-    
-    --------------------------------------------------------------------------
-    -- 4. Compute each point's polar angle around local Z using atan2(y, x)
-    --    The difference gives the sweep angle from v1 to v2
-    --------------------------------------------------------------------------
-    local startAng = atan2 stLocal.y stLocal.x   -- angle of start in local XY
-    local endAng   = atan2 enLocal.y enLocal.x   -- angle of end   in local XY
-    local angleRad = endAng - startAng
-    
-    -- If negative, wrap it into [0..2π]
-    if angleRad < 0.0 do angleRad += 2.0*pi
-    
-    local angleDeg = angleRad * 180.0 / pi
-    -- At this point, angleDeg is guaranteed to be in [0..360]
-
-    --------------------------------------------------------------------------
-    -- 5. Create the Arc shape in local XY plane (no weird large angles)
-    --    We'll sweep from 0 to 'angleDeg'.
-    --------------------------------------------------------------------------
-    local theArc = arc name:"ArcBetween3Points" radius:r from:0 to:angleDeg wirecolor:yellow
-
-    --------------------------------------------------------------------------
-    -- 6. Finally, position/orient the arc in world space
-    --    so that local X -> xAxis, local Y -> yAxis, local Z -> zAxis
-    --------------------------------------------------------------------------
-    local tM = matrix3 xAxis yAxis zAxis centerPoint
-    theArc.transform = tM
-    
-    return theArc
-)
