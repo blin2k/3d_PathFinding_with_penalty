@@ -9,3 +9,7 @@ for b in $path* do(
 for c in $Shape* do(
     delete c
 )
+
+for d in $Arc* do(
+    delete d
+)

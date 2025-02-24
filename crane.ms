@@ -34,16 +34,11 @@ fn rescaleBoom len = (
     
 )
 
-fn yawSpinner theta isClockwise = (
+fn yawCounterclock theta = (
     theta = mod theta 360
 
     spinner = $center
-    if isClockwise != true then (
-        about $center rotate $spinner (eulerangles 0 0 theta)
-    )
-    else(
-        about $center rotate $spinner (eulerangles 0 0 -theta)
-    )
+    about $center rotate $spinner (eulerangles 0 0 theta)
 )
 
 fn getPlaneNormal edge core center =
@@ -56,31 +51,36 @@ fn getPlaneNormal edge core center =
     return normalize normal
 )
 
-fn pitchSpinner theta isDown = (
+fn pitchDown theta = (
     cur = getNodeByName "cable&hook"
     orth = getPlaneNormal cur.pos $core.pos $center.pos
-    if isDown != true do theta = -theta
     local rotQuat = angleaxis theta orth
     about $core rotate $level1 rotQuat
 )
 
 fn moveSpinner p = (
     cur = (getNodeByName "cable&hook").pos - $center.pos
-    goal = p.world_position - $center.pos
-    -- goal = p
+    if ClassOf p != point3 then(
+        goal = p.world_position - $center.pos
+    )
+    else(
+        goal = p - $center.pos
+    )
 
     cur_f = [cur.x, cur.y, 0]
     goal_f = [goal.x, goal.y, 0]
     theta_f = getAngle cur_f goal_f
+    if theta_f != theta_f do theta_f = 0
     print("----")
-    print(cur_f)
-    print(goal_f)
+    -- print(cur_f)
+    -- print(goal_f)
     print(theta_f)
-    pitchSpinner theta_f false
+    yawCounterclock theta_f
+    -- pitchDown theta_f
 
-    d = distance $base.pos p.world_position
-    print($base)
-    print(p.world_position)
-    print("distance: " + d as string)
-    rescaleBoom d
+    -- d = distance $base.pos p.world_position
+    -- print($base)
+    -- print(p.world_position)
+    -- print("distance: " + d as string)
+    -- rescaleBoom d
 )
