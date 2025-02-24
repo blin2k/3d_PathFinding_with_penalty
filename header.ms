@@ -532,7 +532,7 @@ fn AStar start_node end_node map obs origin safe_radius min_angle max_angle safe
             -- assign g-value for neighbours
             if safe_mode == true then(
                 -- tentativeG = current.g + 1 + (getCrowdedRisk current obs safe_radius 30) + 10 * (getHeightRisk current neighbour) + getAngleRisk center neighbour min_angle max_angle 
-                tentativeG = current.g +  getCrowdedRisk current obs safe_radius 30 + 10 * (getHeightRisk current neighbour) + getAngleRisk center neighbour min_angle max_angle 
+                tentativeG = current.g + getCrowdedRisk current obs safe_radius 30 + 10 * (getHeightRisk current neighbour) + getAngleRisk center neighbour min_angle max_angle + sqrt (getDistance current neighbour)
             )
             else(
                 -- tentativeG = current.g + 1
