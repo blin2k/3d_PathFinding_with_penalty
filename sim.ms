@@ -88,7 +88,7 @@ if ps != undefined then(
     cur_time = 0
     with animate on(
         at time 0 (
-            -- moveSpinner ps[1]
+            moveSpinner ps[1]
         )
         for p in ps do(
             cur_time = cur_time + 120
@@ -107,7 +107,7 @@ if ps != undefined then(
                 )
                 drawLine prev.world_position p.world_position colour
 
-                -- moveSpinner p
+                moveSpinner p
 
                 pick.pos = p.world_position
                 -- print(pick.pos as string + " " + p.world_position as string)
