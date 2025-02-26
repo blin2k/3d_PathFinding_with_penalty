@@ -205,6 +205,9 @@ fn isArcIntersectsCube c pStart pEnd boxMin boxMax numSamples:32 =
         local t = thetaStart + i * stepAngle
         -- Parametric point on the arc:
         local p = c + R * (u * cos t + v * sin t)
+        if isBoomBlocked p obs then(
+            return true
+        ) 
         
         -- 6) Check if p is within the cube's bounding box
         if (p.x >= boxMin.x AND p.x <= boxMax.x) AND \
@@ -437,6 +440,18 @@ fn isPathBlocked from_pos to_pos obs = (
     return false
 )
 
+fn isBoomBlocked to_pos obs =(
+    hook_pos = to_pos + [0, 0, 10]
+    dir = normalize (hook_pos - $core.pos)
+    r = ray $core.pos dir
+    for ob in obs do(
+        if intersectRay ob r != undefined then(
+            return true
+        )
+    )
+    return false
+)
+
 fn getNeighbours cur_node map obs origin = (
     cur_layer = cur_node.layer_id
     cur_ray = cur_node.ray_id
@@ -444,11 +459,6 @@ fn getNeighbours cur_node map obs origin = (
     for p in map do(
         if p.world_position.z >= 0 and (p.layer_id == cur_layer or p.ray_id == cur_ray) then(
             if not isPathBlocked cur_node.world_position p.world_position obs then (
-                for ob in obs do(
-                    -- s = sphere pos:p.world_position radius:0.1
-                    -- if not intersects s ob do append neighbours p
-                    -- delete s
-                )
                 append neighbours p
             )
         )
