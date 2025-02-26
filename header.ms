@@ -205,7 +205,7 @@ fn isArcIntersectsCube c pStart pEnd boxMin boxMax numSamples:32 =
         local t = thetaStart + i * stepAngle
         -- Parametric point on the arc:
         local p = c + R * (u * cos t + v * sin t)
-        if isBoomBlocked p obs then(
+        if isBoomBlocked p obs or p.z < 0 then(
             return true
         ) 
         
@@ -441,7 +441,7 @@ fn isPathBlocked from_pos to_pos obs = (
 )
 
 fn isBoomBlocked to_pos obs =(
-    hook_pos = to_pos + [0, 0, 5]
+    hook_pos = to_pos + [0, 0, 10]
     dir = normalize (hook_pos - $core.pos)
     r = ray $core.pos dir
     for ob in obs do(

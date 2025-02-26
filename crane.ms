@@ -85,7 +85,7 @@ fn moveSpinner p = (
     core_to_p = p.world_position - $core.pos
     core_to_hook = hook_pos - $core.pos
 
-    v1 = normalize (core_to_p + [0,0,5])
+    v1 = normalize (core_to_p + [0,0,10])
     v2 = [0,0,1]
     v3 = normalize core_to_hook
 
