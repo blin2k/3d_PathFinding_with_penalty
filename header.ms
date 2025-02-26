@@ -441,7 +441,7 @@ fn isPathBlocked from_pos to_pos obs = (
 )
 
 fn isBoomBlocked to_pos obs =(
-    hook_pos = to_pos + [0, 0, 10]
+    hook_pos = to_pos + [0, 0, 5]
     dir = normalize (hook_pos - $core.pos)
     r = ray $core.pos dir
     for ob in obs do(

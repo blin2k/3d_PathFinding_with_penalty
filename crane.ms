@@ -20,7 +20,6 @@ fn resetBoom = (
 )
 
 fn rescaleBoom len = (
-    print("aim :" + len as string)
     len += 3
     if len < min_len or len > max_len do messageBox("Error: Illegal length")
 
@@ -28,11 +27,9 @@ fn rescaleBoom len = (
     dir = normalize ($level6.pos - $core.pos)
     rest = mod (len - min_len) 10
     tube_num = ((len - min_len - rest) / 10) as integer 
-    print(tube_num as string + " * 10 + " + min_len as string + " + " + rest as string)
 
     cur_stage = inner_sec
     for i in 0 to (tube_num - 1) do(
-        print(cur_stage)
         cur_tube_name = "level" + (cur_stage as integer) as string
         cur_tube = getNodeByName cur_tube_name
         cur_tube.pos = cur_tube.pos + 10 * dir
@@ -69,6 +66,7 @@ fn pitchDown theta = (
 )
 
 fn moveSpinner p = (
+    -- horizonal rotation (yawing)
     hook_pos = (getNodeByName "cable&hook").pos
     center_to_hook = hook_pos - $center.pos
     center_to_p = p.world_position - $center.pos
@@ -83,21 +81,36 @@ fn moveSpinner p = (
 
     yawCntClk theta_h
 
-    -- cur_v = [0, 0, core_to_hook.z + 10]
-    -- goal_v = [0, 0, core_to_p.z + 10]
+    -- vertical rotation (pitching)
+    core_to_p = p.world_position - $core.pos
+    core_to_hook = hook_pos - $core.pos
 
-    core_to_hook = (hook_pos - $core.pos)
-    print(core_to_hook)
-    print(core_to_p)
+    v1 = normalize (core_to_p + [0,0,5])
+    v2 = [0,0,1]
+    v3 = normalize core_to_hook
 
-    cur_v = normalize core_to_hook
-    goal_v = normalize core_to_p
+    theta_p = acos (dot v1 v2)
+    theta_hook = acos (dot v3 v2)
 
-    theta_v = acos (dot cur_v goal_v)
-    if theta_v != theta_v do theta_v = 0
-    print("v: " + theta_v as string)
-    -- pitchDown -theta_v
+    if theta_p != theta_p then (
+        theta_p = 0
+    )
+    else(
+        theta_p = 90 - theta_p
+    )
 
+    if theta_hook != theta_hook then (
+        theta_hook = 0
+    )
+    else(
+        theta_hook = 90 - theta_hook
+    )
+
+    delta = theta_hook - theta_p
+    pitchDown delta
+    print("from: " + theta_hook as string + " to " + theta_p as string + " need to pitch down " + delta as string)
+
+    -- radial movement (extension)
     l = distance $core.pos (p.world_position)
     rescaleBoom l
 )
